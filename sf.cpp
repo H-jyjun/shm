@@ -79,5 +79,5 @@ int main() {
     printf("복원된 비밀: %d\n", recovered);
 
     return 0;
-}
+    
 
