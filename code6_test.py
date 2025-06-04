@@ -19,7 +19,7 @@ def eval_poly(coeffs, x):
 
 def reconstruct_poly(x_vals, y_vals):
     k = len(x_vals)
-    terms = []
+    coeffs = [0] * k
     secret = 0
     for i in range(k):
         num = 1
@@ -29,10 +29,13 @@ def reconstruct_poly(x_vals, y_vals):
                 num = (num * (-x_vals[j] % P)) % P
                 den = (den * (x_vals[i] - x_vals[j]) % P) % P
         li = (num * modinv(den, P)) % P
-        term = (y_vals[i] * li) % P
-        secret = (secret + term) % P
-        terms.append(term)
-    return secret, terms
+        for j in range(k):
+            power = 1
+            for m in range(j):
+                power = (power * x_vals[i]) % P
+            coeffs[j] = (coeffs[j] + y_vals[i] * li * power) % P
+        secret = (secret + y_vals[i] * li) % P
+    return secret, coeffs
 
 def poly_to_str(coeffs):
     terms = [f"{coef}" if i == 0 else f"{coef}x^{i}" for i, coef in enumerate(coeffs) if coef != 0]
@@ -42,7 +45,7 @@ class ShamirGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Shamir Secret Sharing")
-        self.root.geometry("600x520")
+        self.root.geometry("700x600")
         self.root.configure(bg='white')
 
         self.k = 3
@@ -50,7 +53,9 @@ class ShamirGUI:
         self.secret = random.randint(1, P - 1)
         self.coeffs = [self.secret] + [random.randint(1, P - 1) for _ in range(self.k - 1)]
         self.poly_str = poly_to_str(self.coeffs)
-        self.shares = [(i, eval_poly(self.coeffs, i)) for i in range(1, self.n + 1)]
+
+        x_values = random.sample(range(1, P), self.n)
+        self.shares = [(x, eval_poly(self.coeffs, x)) for x in x_values]
 
         self.create_widgets()
 
@@ -63,9 +68,20 @@ class ShamirGUI:
         shares_text = "\n".join([f"Share {i}: ({x}, {y})" for i, (x, y) in enumerate(self.shares, 1)])
         tk.Label(self.output_frame, text=f"▶ 생성된 조각들:\n{shares_text}", font=("Helvetica", 11), bg='white', justify='left').pack(pady=5)
 
-        tk.Label(self.output_frame, text=f"▶ 복원할 조각 {self.k}개를 직접 입력하세요 (형식: x1,y1 x2,y2 x3,y3):", font=("Helvetica", 11), bg='white').pack()
-        self.entry = tk.Entry(self.output_frame, width=50)
-        self.entry.pack(pady=5)
+        tk.Label(self.output_frame, text=f"▶ 복원할 조각 3개를 입력하세요:", font=("Helvetica", 11), bg='white').pack(pady=5)
+
+        self.entries = []
+        entry_frame = tk.Frame(self.output_frame, bg='white')
+        entry_frame.pack()
+
+        labels = ["x₁", "y₁", "x₂", "y₂", "x₃", "y₃"]
+        for i in range(3):
+            for j in range(2):
+                label = tk.Label(entry_frame, text=labels[i * 2 + j], bg='white', font=("Helvetica", 10))
+                label.grid(row=i, column=j * 2, padx=5, pady=2)
+                entry = tk.Entry(entry_frame, width=7)
+                entry.grid(row=i, column=j * 2 + 1, padx=5, pady=2)
+                self.entries.append(entry)
 
         self.result_label = tk.Label(self.output_frame, text="", font=("Helvetica", 12), bg='white')
         self.result_label.pack(pady=10)
@@ -77,28 +93,28 @@ class ShamirGUI:
 
     def recover_secret(self):
         try:
-            raw_input = self.entry.get().strip().split()
-            selected = [tuple(map(int, pair.split(","))) for pair in raw_input]
-            if len(selected) != self.k:
-                raise ValueError
+            x_vals, y_vals = [], []
+            for i in range(3):
+                x = int(self.entries[i * 2].get())
+                y = int(self.entries[i * 2 + 1].get())
+                x_vals.append(x)
+                y_vals.append(y)
 
-            x_vals = [pair[0] for pair in selected]
-            y_vals = [pair[1] for pair in selected]
-
-            recovered, terms = reconstruct_poly(x_vals, y_vals)
-            recovered_str = poly_to_str(terms)
+            recovered, coeffs = reconstruct_poly(x_vals, y_vals)
+            recovered_str = poly_to_str(coeffs)
 
             result_text = f"✅ 복원된 비밀: {recovered}\n✅ 복원된 다항식 (f(x)): {recovered_str}"
             color = "green" if recovered == self.secret else "red"
             self.result_label.config(text=result_text, fg=color)
         except:
-            messagebox.showerror("입력 오류", "입력 형식: x1,y1 x2,y2 x3,y3  (예: 1,123 2,456 4,789)")
+            messagebox.showerror("입력 오류", "각 x, y 값을 정수로 정확히 입력하세요.")
 
     def save_as_image(self):
-        x = self.root.winfo_rootx()
-        y = self.root.winfo_rooty()
-        w = self.root.winfo_width()
-        h = self.root.winfo_height()
+        self.root.update()
+        x = self.output_frame.winfo_rootx()
+        y = self.output_frame.winfo_rooty()
+        w = self.output_frame.winfo_width()
+        h = self.output_frame.winfo_height()
         filepath = os.path.join(os.getcwd(), "shamir_output.png")
         ImageGrab.grab().crop((x, y, x + w, y + h)).save(filepath)
         messagebox.showinfo("저장 완료", f"이미지가 저장되었습니다:\n{filepath}")
