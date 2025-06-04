@@ -64,6 +64,7 @@ class SecretSharingGUI:
         self.root = root
         self.root.title("Shamir Secret Sharing (Visualized)")
         self.root.configure(bg="white")
+        self.root.geometry("1000x750")
 
         style = ttk.Style()
         style.configure("TButton", font=("Helvetica", 14), padding=10)
@@ -71,7 +72,7 @@ class SecretSharingGUI:
         self.frame = tk.Frame(self.root, bg="white")
         self.frame.pack(fill="both", expand=True)
 
-        self.canvas = tk.Canvas(self.frame, width=1000, height=700, bg="white", highlightthickness=0)
+        self.canvas = tk.Canvas(self.frame, width=980, height=650, bg="white", highlightthickness=0)
         self.canvas.pack(side="top", pady=10)
 
         self.button = ttk.Button(self.frame, text="🔐 시크릿 공유 실행", command=self.run)
@@ -97,14 +98,23 @@ class SecretSharingGUI:
             xi = [x_values[i] for i in c]
             yi = [y_corrupted[i] for i in c]
             recovered = lagrange_poly(xi, yi, k)
+            # 올바른 복원일 경우 초록, 아니면 빨강
+            correct = all((a - b) % P == 0 for a, b in zip(recovered, coeffs))
+            color = "green" if correct else "red"
             text = f"{idx+1:>2}. ({xi[0]}, {xi[1]}, {xi[2]}) → {recovered[2]}x² + {recovered[1]}x + {recovered[0]}"
-            self.canvas.create_text(500, 350 + idx * 20, text=text, font=("Courier", 11), fill="darkgreen")
+            self.canvas.create_text(500, 350 + idx * 20, text=text, font=("Courier", 11), fill=color)
+
+        # 올바른 식과 비밀 값 강조 표시
+        self.canvas.create_text(500, 570, text="✔ 올바른 복원식:", font=("Helvetica", 14, "bold"), fill="darkgreen")
+        equation = f"f(x) = {coeffs[2]}x² + {coeffs[1]}x + {coeffs[0]}"
+        self.canvas.create_text(500, 600, text=equation, font=("Helvetica", 14, "bold"), fill="darkgreen")
+        self.canvas.create_text(500, 630, text=f"비밀 값 (a₀): {coeffs[0]}", font=("Helvetica", 14, "bold"), fill="darkgreen")
 
     def draw_detection(self, x_values, y_original, y_corrupted):
-        self.canvas.create_text(500, 590, text="🔍 오염 조각 탐지 결과", font=("Helvetica", 14, "bold"), fill="black")
+        self.canvas.create_text(500, 660, text="🔍 오염 조각 탐지 결과", font=("Helvetica", 14, "bold"), fill="black")
         for i in range(len(x_values)):
             if y_original[i] != y_corrupted[i]:
-                self.canvas.create_text(500, 620, text=f"❗ 오염된 조각: x = {x_values[i]} → 원래 y = {y_original[i]}", font=("Helvetica", 12), fill="red")
+                self.canvas.create_text(500, 690, text=f"❗ 오염된 조각: x = {x_values[i]} → 원래 y = {y_original[i]}", font=("Helvetica", 12), fill="red")
 
     def run(self):
         self.canvas.delete("all")
